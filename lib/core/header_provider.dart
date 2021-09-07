@@ -1,5 +1,12 @@
-import 'package:wani_reminder/constants.dart';
+import 'package:wani_reminder/core/preferences_manager.dart';
 
 class HeaderProvider {
-  Map<String, dynamic> get headers => {'Authorization': 'Bearer $apiKey'};
+  final PreferencesManager preferencesManager;
+
+  HeaderProvider(this.preferencesManager);
+
+  Future<Map<String, dynamic>?> get headers async {
+    final token = await preferencesManager.loadToken();
+    return {'Authorization': 'Bearer $token'};
+  }
 }

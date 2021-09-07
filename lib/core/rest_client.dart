@@ -12,16 +12,20 @@ class RestClient {
   RestClient(this.headerProvider, this.dio);
 
   Future<WkResponseData?> summary() async {
-    final result = await dio.get(
-      '$_baseUrl/summary',
-      options: Options(
-        headers: headerProvider.headers,
-      ),
-    );
+    final headers = await headerProvider.headers;
 
-    if (result.data != null) {
-      if (result.data['data'] != null) {
-        return WkResponseData.fromMap(result.data['data']);
+    if (headers != null) {
+      final result = await dio.get(
+        '$_baseUrl/summary',
+        options: Options(
+          headers: headers,
+        ),
+      );
+
+      if (result.data != null) {
+        if (result.data['data'] != null) {
+          return WkResponseData.fromMap(result.data['data']);
+        }
       }
     }
 
@@ -29,19 +33,22 @@ class RestClient {
   }
 
   Future<WkUserData?> user() async {
-    final result = await dio.get(
-      '$_baseUrl/user',
-      options: Options(
-        headers: headerProvider.headers,
-      ),
-    );
+    final headers = await headerProvider.headers;
 
-    if (result.data != null) {
-      if (result.data['data'] != null) {
-        return WkUserData.fromMap(result.data['data']);
+    if (headers != null) {
+      final result = await dio.get(
+        '$_baseUrl/user',
+        options: Options(
+          headers: headers,
+        ),
+      );
+
+      if (result.data != null) {
+        if (result.data['data'] != null) {
+          return WkUserData.fromMap(result.data['data']);
+        }
       }
     }
-
     return null;
   }
 }
