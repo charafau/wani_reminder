@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:wani_reminder/core/preferences_manager.dart';
 
 class SettingsPage extends StatefulWidget {

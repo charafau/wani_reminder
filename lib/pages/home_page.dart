@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:wani_reminder/core/constants.dart';
 import 'package:wani_reminder/core/header_provider.dart';
 import 'package:wani_reminder/core/preferences_manager.dart';
 import 'package:wani_reminder/core/rest_client.dart';
@@ -24,28 +26,71 @@ class _HomePageState extends State<HomePage> {
   int currentReviewCount = 0;
   int currentLessonCount = 0;
 
+  int pendingNotifications = 0;
+
   @override
   void initState() {
     super.initState();
     _fetchSummary();
     _initNotificationPlugin();
+    _checkPendingNotificationRequests();
   }
 
-  void _showNotification(int? reviewCount, int? lessonCount) async {
+  Future<void> _checkPendingNotificationRequests() async {
+    final List<PendingNotificationRequest> pendingNotificationRequests =
+        await flutterLocalNotificationsPlugin.pendingNotificationRequests();
+    setState(() {
+      pendingNotifications = pendingNotificationRequests.length;
+    });
+  }
+
+  Future<void> _cancelPendingNotifications() async {
+    await flutterLocalNotificationsPlugin.cancelAll();
+    await _checkPendingNotificationRequests();
+  }
+
+  Future<void> _showNotification(int? reviewCount, int? lessonCount) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-            'your channel id', 'your channel name', 'your channel description',
+        AndroidNotificationDetails(notificationChannelId,
+            notificationChannelName, notificationChannelDesc,
             importance: Importance.max,
             priority: Priority.high,
             showWhen: false);
     const NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await flutterLocalNotificationsPlugin.show(
-      0,
+      notificationId,
       'WaniKani Reviews',
       'Current Lessons: ${lessonCount ?? 0}, Reviews: ${reviewCount ?? 0}',
       platformChannelSpecifics,
     );
+  }
+
+  Future<void> _scheduleNotification() async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(notificationChannelId,
+            notificationChannelName, notificationChannelDesc,
+            importance: Importance.max,
+            priority: Priority.high,
+            showWhen: false);
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+    if (await widget.preferencesManager.hasToken()) {
+      final rc = RestClient(HeaderProvider(widget.preferencesManager), Dio());
+
+      final summary = await rc.summary();
+
+      final lessons = summary?.lessonsCount() ?? 0;
+      final reviews = summary?.reviewCount() ?? 0;
+
+      await flutterLocalNotificationsPlugin.periodicallyShow(
+        notificationId,
+        'WaniKani Reviews',
+        'Current Lessons: $lessons, Reviews: $reviews',
+        RepeatInterval.hourly,
+        platformChannelSpecifics,
+      );
+    }
   }
 
   void _initNotificationPlugin() async {
@@ -145,16 +190,42 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: pendingNotifications == 0
+                  ? const Text(
+                      'Reminders are OFF',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : const Text(
+                      'Reminders are ON',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          await _fetchSummary();
-          _showNotification(currentReviewCount, currentLessonCount);
+          if (pendingNotifications == 0) {
+            await _fetchSummary();
+            await _showNotification(currentReviewCount, currentLessonCount);
+            await _scheduleNotification();
+            _checkPendingNotificationRequests();
+          } else {
+            _cancelPendingNotifications();
+          }
         },
         tooltip: 'Increment',
-        label: const Text('Schedule alerts'),
+        label: pendingNotifications == 0
+            ? const Text('Schedule reminders')
+            : const Text('Cancel reminders'),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
